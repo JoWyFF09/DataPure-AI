@@ -48,7 +48,7 @@ if not st.session_state["autenticado"]:
 # ==========================================
 # CORE DE DATOS Y AI
 # ==========================================
-DATABASE_URL = st.secrets.get["DATABASE_URL"]
+DATABASE_URL = st.secrets.get("DATABASE_URL")
 
 def obtener_conexion():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
