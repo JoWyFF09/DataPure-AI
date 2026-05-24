@@ -214,12 +214,29 @@ if modo == "Pipeline de Auditoría":
             
             # BOTÓN DE DESCARGA PDF
             pdf_data = generar_reporte_pdf(total, nulos, alertas)
-            st.download_button(
-                label="📥 Descargar Informe de Auditoria (PDF)",
-                data=pdf_data,
-                file_name="reporte_auditoria.pdf",
-                mime="application/pdf"
-            )
+            with st.expander("📥 Obtener Informe de Auditoría Completo"):
+              st.write("Introduce tus datos para generar y descargar el informe oficial.")
+              with st.form("form_captacion"):
+                 nombre_cliente = st.text_input("Nombre de la Empresa / Contacto")
+                 email_cliente = st.text_input("Email Corporativo")
+                 submit_button = st.form_submit_button("Generar PDF")
+        
+                 if submit_button:
+                    if email_cliente and "@" in email_cliente:
+                        # Generamos el PDF
+                        pdf_binario = generar_reporte_pdf(total, nulos, alertas)
+                
+                        # Guardamos el lead en tu base de datos o simplemente mostramos el botón
+                        st.success(f"Informe listo para {nombre_cliente}. ¡Gracias!")
+                        st.download_button(
+                            label="Descargar PDF",
+                            data=pdf_binario,
+                            file_name=f"Informe_Auditoria_{nombre_cliente}.pdf",
+                            mime="application/pdf"
+                        )
+                    else:
+                        st.error("Por favor, introduce un email corporativo válido.")
+            
 elif modo == "Base de Datos SQL":
     st.subheader("Registros Almacenados en Servidor")
     conn = obtener_conexion()
