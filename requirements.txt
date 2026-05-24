@@ -1,0 +1,7 @@
+streamlit>=1.30.0
+pandas>=2.0.0
+numpy>=1.24.0
+tensorflow-cpu>=2.14.0  # Usamos la versión CPU porque los servidores gratuitos no tienen tarjeta gráfica (GPU)
+joblib>=1.3.0
+psycopg2-binary>=2.9.0
+scikit-learn>=1.3.0
