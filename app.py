@@ -12,6 +12,8 @@ import hashlib
 import re 
 from fpdf import FPDF
 import io
+import smtplib
+from email.message import EmailMessage
 
 st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
 
@@ -213,6 +215,21 @@ if modo == "Pipeline de Auditoría":
             
             
             # BOTÓN DE DESCARGA PDF
+            def enviar_aviso_venta(nombre, email):
+               # Configuración de tu cuenta
+               mi_correo = "joelrodriguezcr10@gmail.com"
+               contrasena = "kglsdruogpwitmfl" # La que generaste en Google
+    
+               msg = EmailMessage()
+               msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ha auditado datos"
+               msg['From'] = mi_correo
+               msg['To'] = mi_correo # Te lo envías a ti mismo
+               msg.set_content(f"El cliente {nombre} ({email}) ha descargado un informe de auditoria.")
+    
+               with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                  smtp.login(mi_correo, contrasena)
+                  smtp.send_message(msg)
+                  
             pdf_data = generar_reporte_pdf(total, nulos, alertas)
             with st.expander("📥 Obtener Informe de Auditoría Completo"):
               st.write("Introduce tus datos para generar y descargar el informe oficial.")
@@ -223,6 +240,10 @@ if modo == "Pipeline de Auditoría":
         
                  if submit_button:
                     if email_cliente and "@" in email_cliente:
+                        try:
+                           enviar_aviso_venta(nombre_cliente, email_cliente)
+                        except:
+                            pass
                         # Generamos el PDF
                         pdf_binario = generar_reporte_pdf(total, nulos, alertas)
                 
