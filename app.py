@@ -10,6 +10,8 @@ import time
 import os
 import hashlib
 import re 
+from fpdf import FPDF
+import io
 
 st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
 
@@ -108,7 +110,24 @@ def purificar_datos_con_ia(df_sucio):
     df_aprobado['Telefono'] = df_aprobado['Telefono'].apply(blindar_telefono)
     
     return df_aprobado, len(df_sucio), df_sucio['Edad'].isnull().sum(), len(df_sucio[errores_reconstruccion > UMBRAL_IA]), df_sucio
-
+# ==========================================
+# GENERADOR DE REPORTES (PDF)
+# ==========================================
+def generar_reporte_pdf(total, nulos, alertas):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt="Informe de Auditoria - Spacenet AI", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.ln(10)
+    pdf.cell(200, 10, txt=f"Total Registros Auditados: {total}", ln=True)
+    pdf.cell(200, 10, txt=f"Nulos Corregidos: {nulos}", ln=True)
+    pdf.cell(200, 10, txt=f"Anomalias Bloqueadas (Cuarentena): {alertas}", ln=True)
+    pdf.ln(10)
+    pdf.cell(200, 10, txt="Estado: Proteccion de datos activada (SHA256 + Masking)", ln=True)
+    
+    # Retornamos el PDF como binario para el botón
+    return pdf.output(dest='S').encode('latin-1')
 # ==========================================
 # DASHBOARD PROFESIONAL
 # ==========================================
@@ -166,7 +185,20 @@ if modo == "Pipeline de Auditoría":
                 st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), use_container_width=True)
             with tab2:
                 st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
-
+    # Métricas
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Registros Auditados", f"{total:,}")
+            col2.metric("Nulos Corregidos", f"{nulos:,}")
+            col3.metric("Anomalías Bloqueadas", f"{alertas:,}")
+            
+            # BOTÓN DE DESCARGA PDF
+            pdf_data = generar_reporte_pdf(total, nulos, alertas)
+            st.download_button(
+                label="📥 Descargar Informe de Auditoria (PDF)",
+                data=pdf_data,
+                file_name="reporte_auditoria.pdf",
+                mime="application/pdf"
+            )
 elif modo == "Base de Datos SQL":
     st.subheader("Registros Almacenados en Servidor")
     conn = obtener_conexion()
