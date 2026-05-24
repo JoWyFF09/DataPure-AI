@@ -5,3 +5,4 @@ tensorflow-cpu>=2.14.0  # Usamos la versión CPU porque los servidores gratuitos
 joblib>=1.3.0
 psycopg2-binary>=2.9.0
 scikit-learn>=1.3.0
+openpyxl
