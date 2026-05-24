@@ -23,9 +23,7 @@ st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide"
 if "USUARIO_CORRECTO" in st.secrets and "PASSWORD_CORRECTA" in st.secrets:
     USUARIO_CORRECTO = st.secrets["USUARIO_CORRECTO"]
     PASSWORD_CORRECTA = st.secrets["PASSWORD_CORRECTA"]
-else:
-    USUARIO_CORRECTO = "admin"
-    PASSWORD_CORRECTA = "Spacenet2026"
+    
 
 def verificar_credenciales(usuario, password):
     return usuario.strip() == USUARIO_CORRECTO and password.strip() == PASSWORD_CORRECTA
@@ -50,7 +48,7 @@ if not st.session_state["autenticado"]:
 # ==========================================
 # CORE DE DATOS Y AI
 # ==========================================
-DATABASE_URL = st.secrets.get("DATABASE_URL", "postgresql://postgres.mmuzkpooqjpdzmtsyqlu:ElBicho_007@aws-1-eu-north-1.pooler.supabase.com:6543/postgres")
+DATABASE_URL = st.secrets.get["DATABASE_URL"]
 
 def obtener_conexion():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
@@ -230,33 +228,40 @@ if modo == "Pipeline de Auditoría":
                   smtp.login(mi_correo, contrasena)
                   smtp.send_message(msg)
                   
-            pdf_data = generar_reporte_pdf(total, nulos, alertas)
-            with st.expander("📥 Obtener Informe de Auditoría Completo"):
-              st.write("Introduce tus datos para generar y descargar el informe oficial.")
-              with st.form("form_captacion"):
-                 nombre_cliente = st.text_input("Nombre de la Empresa / Contacto")
-                 email_cliente = st.text_input("Email Corporativo")
-                 submit_button = st.form_submit_button("Generar PDF")
+            # --- EN TU BLOQUE DE "PIPELINE DE AUDITORÍA" ---
+
+            # 1. Definir estado inicial
+            if 'pdf_generado' not in st.session_state:
+               st.session_state.pdf_generado = None
+
+            # 2. El Formulario
+            with st.expander("📥 Obtener Informe de Auditoría"):
+               with st.form("form_captacion"):
+                   nombre_cliente = st.text_input("Nombre de la Empresa")
+                   email_cliente = st.text_input("Email Corporativo")
+                   submit_button = st.form_submit_button("Generar Informe")
         
-                 if submit_button:
-                    if email_cliente and "@" in email_cliente:
-                        try:
-                           enviar_aviso_venta(nombre_cliente, email_cliente)
-                        except:
-                            pass
-                        # Generamos el PDF
-                        pdf_binario = generar_reporte_pdf(total, nulos, alertas)
-                
-                        # Guardamos el lead en tu base de datos o simplemente mostramos el botón
-                        st.success(f"Informe listo para {nombre_cliente}. ¡Gracias!")
-                        st.download_button(
-                            label="Descargar PDF",
-                            data=pdf_binario,
-                            file_name=f"Informe_Auditoria_{nombre_cliente}.pdf",
-                            mime="application/pdf"
-                        )
-                    else:
-                        st.error("Por favor, introduce un email corporativo válido.")
+                   if submit_button:
+                      if email_cliente and "@" in email_cliente:
+                          # Generamos y guardamos en estado
+                          st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
+                          try:
+                              enviar_aviso_venta(nombre_cliente, email_cliente)
+                          except:
+                              pass
+                          st.success("Informe generado. ¡Ya puedes descargarlo!")
+                      else:
+                          st.error("Email inválido.")
+
+            # 3. Botón de descarga FUERA del formulario
+            if st.session_state.pdf_generado:
+                st.download_button(
+                   label="⬇️ DESCARGAR PDF AHORA",
+                   data=st.session_state.pdf_generado,
+                   file_name="Reporte_Auditoria.pdf",
+                   mime="application/pdf"
+                )
+                    
             
 elif modo == "Base de Datos SQL":
     st.subheader("Registros Almacenados en Servidor")
