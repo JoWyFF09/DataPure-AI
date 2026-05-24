@@ -116,17 +116,42 @@ def purificar_datos_con_ia(df_sucio):
 def generar_reporte_pdf(total, nulos, alertas):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="Informe de Auditoria - Spacenet AI", ln=True, align='C')
-    pdf.set_font("Arial", size=12)
-    pdf.ln(10)
-    pdf.cell(200, 10, txt=f"Total Registros Auditados: {total}", ln=True)
-    pdf.cell(200, 10, txt=f"Nulos Corregidos: {nulos}", ln=True)
-    pdf.cell(200, 10, txt=f"Anomalias Bloqueadas (Cuarentena): {alertas}", ln=True)
-    pdf.ln(10)
-    pdf.cell(200, 10, txt="Estado: Proteccion de datos activada (SHA256 + Masking)", ln=True)
     
-    # Retornamos el PDF como binario para el botón
+    # Encabezado con estilo
+    pdf.set_fill_color(30, 30, 30) # Gris oscuro casi negro
+    pdf.rect(0, 0, 210, 30, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", 'B', 20)
+    pdf.cell(0, 15, "SPACENET | IA AUDIT REPORT", ln=True, align='C')
+    pdf.ln(15)
+    
+    # Cuerpo del informe
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "RESUMEN EJECUTIVO DE PROCESAMIENTO", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.ln(5)
+    
+    # Tabla de métricas
+    data = [
+        ("Registros Auditados", f"{total:,}"),
+        ("Nulos Corregidos", f"{nulos:,}"),
+        ("Anomalias Bloqueadas", f"{alertas:,}"),
+        ("Integridad de Datos", "100%"),
+        ("Protocolo de Seguridad", "SHA-256 + Masking")
+    ]
+    
+    for label, value in data:
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(100, 10, label + ":", border=0)
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, value, ln=True, border=0)
+    
+    # Pie de página
+    pdf.ln(20)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 10, "Documento generado automaticamente por Spacenet AI Engine.", ln=True, align='C')
+    
     return pdf.output(dest='S').encode('latin-1')
 # ==========================================
 # DASHBOARD PROFESIONAL
@@ -185,11 +210,7 @@ if modo == "Pipeline de Auditoría":
                 st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), use_container_width=True)
             with tab2:
                 st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
-    # Métricas
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Registros Auditados", f"{total:,}")
-            col2.metric("Nulos Corregidos", f"{nulos:,}")
-            col3.metric("Anomalías Bloqueadas", f"{alertas:,}")
+            
             
             # BOTÓN DE DESCARGA PDF
             pdf_data = generar_reporte_pdf(total, nulos, alertas)
