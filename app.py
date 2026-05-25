@@ -18,31 +18,37 @@ from email.message import EmailMessage
 st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
 
 # ==========================================
-# AUTHENTICATION
+# AUTHENTICATION (MULTI-TENANT)
 # ==========================================
-if "USUARIO_CORRECTO" in st.secrets and "PASSWORD_CORRECTA" in st.secrets:
-    USUARIO_CORRECTO = st.secrets["USUARIO_CORRECTO"]
-    PASSWORD_CORRECTA = st.secrets["PASSWORD_CORRECTA"]
-
-
 def verificar_credenciales(usuario, password):
-    return usuario.strip() == USUARIO_CORRECTO and password.strip() == PASSWORD_CORRECTA
+    try:
+        # Busca en la sección [usuarios] de secrets
+        usuarios_db = st.secrets["usuarios"]
+        if usuario in usuarios_db:
+            if str(usuarios_db[usuario]["password"]) == str(password):
+                return True, usuarios_db[usuario]["empresa"]
+    except Exception as e:
+        st.error(f"Error de configuración en Secrets: {e}")
+    return False, None
 
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
+    st.session_state["empresa"] = None
 
 if not st.session_state["autenticado"]:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("Acceso al Sistema")
+        st.title("Acceso al Sistema B2B")
         user_input = st.text_input("Usuario Corporativo")
         pass_input = st.text_input("Contraseña", type="password")
         if st.button("Ingresar"):
-            if verificar_credenciales(user_input, pass_input):
+            valido, empresa_cliente = verificar_credenciales(user_input, pass_input)
+            if valido:
                 st.session_state["autenticado"] = True
+                st.session_state["empresa"] = empresa_cliente
                 st.rerun()
             else:
-                st.error("Credenciales inválidas.")
+                st.error("Credenciales inválidas. Contacte a soporte de Spacenet.")
     st.stop()
 
 # ==========================================
@@ -69,9 +75,6 @@ def cargar_cerebro_ia():
 
 autoencoder, scaler = cargar_cerebro_ia()
 
-# ==========================================
-# LÓGICA DE PURIFICACIÓN (IA + PRIVACIDAD)
-# ==========================================
 def anonimizar_texto(texto):
     return hashlib.sha256(str(texto).encode('utf-8')).hexdigest()[:12]
 
@@ -82,16 +85,11 @@ def blindar_telefono(telefono):
 
 def purificar_datos_con_ia(df_sucio):
     df_limpio = df_sucio.copy()
-    
-    # Rellenar nulos
     df_limpio['Edad'] = df_limpio['Edad'].fillna(df_limpio['Edad'].median() if not df_limpio['Edad'].dropna().empty else 40)
     df_limpio['Ingresos_Anuales'] = df_limpio['Ingresos_Anuales'].fillna(df_limpio['Ingresos_Anuales'].median())
-    
-    # Funciones de validación
     df_limpio['Email_Roto'] = df_limpio['Email'].apply(lambda x: 1.0 if pd.isna(x) or '@' not in str(x) else 0.0)
     df_limpio['Nombre_Falso'] = df_limpio['Nombre'].apply(lambda x: 1.0 if bool(re.search(r'\d', str(x))) else 0.0)
     
-    # Escalado y Predicción
     X_nuevos = df_limpio[['Edad', 'Ingresos_Anuales', 'Email_Roto', 'Nombre_Falso']].values
     x_min, x_max = scaler
     X_nuevos_scaled = (X_nuevos - x_min) / (x_max - x_min + 1e-5)
@@ -99,12 +97,10 @@ def purificar_datos_con_ia(df_sucio):
     X_reconstruido = autoencoder.predict(X_nuevos_scaled, verbose=0)
     errores_reconstruccion = np.mean(np.power(X_nuevos_scaled - X_reconstruido, 2), axis=1)
     
-    # Lógica de anomalías
     UMBRAL_IA = 0.05
     df_sucio['Error_IA'] = errores_reconstruccion
     df_aprobado = df_limpio[errores_reconstruccion <= UMBRAL_IA].copy()
     
-    # Anonimización y Blindaje final
     df_aprobado['Nombre'] = df_aprobado['Nombre'].apply(anonimizar_texto)
     df_aprobado['Email'] = df_aprobado['Email'].apply(anonimizar_texto)
     df_aprobado['Telefono'] = df_aprobado['Telefono'].apply(blindar_telefono)
@@ -112,50 +108,44 @@ def purificar_datos_con_ia(df_sucio):
     return df_aprobado, len(df_sucio), df_sucio['Edad'].isnull().sum(), len(df_sucio[errores_reconstruccion > UMBRAL_IA]), df_sucio
 
 # ==========================================
-# GENERADOR DE REPORTES (PDF)
+# GENERADOR DE REPORTES (PDF PREMIUM)
 # ==========================================
-def generar_reporte_pdf(total, nulos, alertas):
+def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # 1. ENCABEZADO "DEEP TECH"
-    pdf.set_fill_color(15, 23, 42) # Azul oscuro/negro aeroespacial
+    pdf.set_fill_color(15, 23, 42) 
     pdf.rect(0, 0, 210, 38, 'F')
     
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Arial", 'B', 22)
     pdf.cell(0, 10, "SPACENET DATA INTELLIGENCE", ln=True, align='L')
     pdf.set_font("Arial", 'I', 10)
-    pdf.set_text_color(148, 163, 184) # Gris azulado elegante
+    pdf.set_text_color(148, 163, 184) 
     pdf.cell(0, 5, "AI-Powered Data Purification & Security Audit", ln=True, align='L')
     pdf.ln(20)
     
-    # 2. TÍTULO DEL INFORME
     pdf.set_text_color(30, 41, 59)
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "INFORME DE AUDITORIA Y CUARENTENA", ln=True)
+    pdf.cell(0, 10, f"INFORME DE AUDITORIA: {empresa.upper()}", ln=True)
     
-    # Línea decorativa (Corregido: set_line_width)
-    pdf.set_draw_color(99, 102, 241) # Morado/Índigo tecnológico
+    pdf.set_draw_color(99, 102, 241) 
     pdf.set_line_width(1)
     pdf.line(10, 52, 200, 52)
     pdf.ln(8)
     
-    # INTRODUCCIÓN CON CLASE
     pdf.set_font("Arial", size=10)
     pdf.set_text_color(100, 116, 139)
     texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de Spacenet. Se han evaluado las metricas de integridad, registros nulos y patrones anomalos de comportamiento."
     pdf.multi_cell(0, 5, texto_intro)
     pdf.ln(10)
     
-    # 3. TABLA DE MÉTRICAS CRÍTICAS
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(15, 23, 42)
     pdf.cell(0, 8, "METRICAS CLAVE DE PURIFICACION", ln=True)
     pdf.ln(2)
     
-    # Cabecera de tabla
     pdf.set_fill_color(241, 245, 249)
     pdf.set_text_color(71, 85, 105)
     pdf.set_font("Arial", 'B', 10)
@@ -163,7 +153,6 @@ def generar_reporte_pdf(total, nulos, alertas):
     pdf.cell(80, 10, " Valor / Estado", border=1, fill=True, align='C')
     pdf.ln()
     
-    # Datos de la tabla
     data = [
         ("Registros Totales Auditados", f"{total:,} filas"),
         ("Registros Nulos Corregidos por IA", f"{nulos:,} correcciones"),
@@ -175,7 +164,7 @@ def generar_reporte_pdf(total, nulos, alertas):
     pdf.set_font("Arial", size=10)
     for label, value in data:
         if "Anomalias" in label and alertas > 0:
-            pdf.set_text_color(220, 38, 38) # Rojo
+            pdf.set_text_color(220, 38, 38)
             pdf.set_font("Arial", 'B', 10)
         else:
             pdf.set_text_color(51, 65, 85)
@@ -185,7 +174,6 @@ def generar_reporte_pdf(total, nulos, alertas):
         pdf.cell(80, 9, f" {value}", border=1, align='C')
         pdf.ln()
         
-    # 4. DIAGNÓSTICO FINAL
     pdf.ln(12)
     pdf.set_fill_color(239, 246, 255)
     pdf.set_draw_color(191, 219, 254)
@@ -204,7 +192,6 @@ def generar_reporte_pdf(total, nulos, alertas):
         
     pdf.multi_cell(0, 5, msg_diagnostico)
     
-    # Pie de página
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
     pdf.set_text_color(148, 163, 184)
@@ -212,41 +199,67 @@ def generar_reporte_pdf(total, nulos, alertas):
     
     return pdf.output(dest='S').encode('latin-1')
 
-# ==========================================
-# ENVÍO DE EMAIL
-# ==========================================
-def enviar_aviso_venta(nombre, email):
+def enviar_aviso_venta(nombre, email, empresa):
     mi_correo = st.secrets["EMAIL_DESTINO"]
     contrasena = st.secrets["EMAIL_PASSWORD"]
     
     msg = EmailMessage()
-    msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ha auditado datos"
+    msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ({empresa}) ha auditado datos"
     msg['From'] = mi_correo
     msg['To'] = mi_correo 
-    msg.set_content(f"El cliente {nombre} ({email}) ha descargado un informe de auditoria.")
+    msg.set_content(f"El cliente {nombre} ({email}) de la empresa {empresa} acaba de descargar un informe.")
     
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(mi_correo, contrasena)
         smtp.send_message(msg)
 
 # ==========================================
-# DASHBOARD PROFESIONAL
+# DASHBOARD B2B (MULTI-TENANT)
 # ==========================================
-st.sidebar.title("Consola de Operaciones")
+st.sidebar.title(f"Espacio: {st.session_state['empresa']}")
+st.sidebar.markdown(f"**Usuario Operativo**")
 if st.sidebar.button("Cerrar Sesión"):
-    st.session_state["autenticado"] = False
+    st.session_state.clear()
     st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Gestión de Servidor")
-if st.sidebar.button("Vaciar Base de Datos"):
-    conn = obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("TRUNCATE TABLE clientes_purificados RESTART IDENTITY")
-    conn.commit()
-    cursor.close()
-    conn.close()
-    st.sidebar.success("Servidor purgado.")
+
+# MÓDULOS DE ADMINISTRADOR
+if st.session_state["empresa"] == "Spacenet_Admin":
+    st.sidebar.subheader("🛠️ Zona Root (Solo Admin)")
+    
+    if st.sidebar.button("1. Actualizar Arquitectura SQL"):
+        with st.spinner("Modificando base de datos..."):
+            conn = obtener_conexion()
+            cursor = conn.cursor()
+            cursor.execute("ALTER TABLE clientes_purificados ADD COLUMN IF NOT EXISTS empresa VARCHAR(100) DEFAULT 'Desconocida'")
+            conn.commit()
+            
+            try:
+                cursor.execute("ALTER TABLE clientes_purificados DROP CONSTRAINT clientes_purificados_pkey")
+                conn.commit()
+            except:
+                conn.rollback()
+                
+            try:
+                cursor.execute("ALTER TABLE clientes_purificados ADD CONSTRAINT clientes_purificados_pkey PRIMARY KEY (empresa, ID_Cliente)")
+                conn.commit()
+            except:
+                conn.rollback()
+                
+            cursor.close()
+            conn.close()
+        st.sidebar.success("Base de datos adaptada a Multi-Tenant!")
+
+    if st.sidebar.button("2. Vaciar Servidor Global"):
+        conn = obtener_conexion()
+        cursor = conn.cursor()
+        cursor.execute("TRUNCATE TABLE clientes_purificados RESTART IDENTITY")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        st.sidebar.warning("Todas las bases de datos eliminadas.")
+    st.sidebar.markdown("---")
 
 modo = st.sidebar.radio("Módulos", ["Pipeline de Auditoría", "Base de Datos SQL"])
 
@@ -268,10 +281,14 @@ if modo == "Pipeline de Auditoría":
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df_limpio, total, nulos, alertas, analisis = purificar_datos_con_ia(df)
             
+            # GUARDADO MULTI-TENANT
             conn = obtener_conexion()
             cursor = conn.cursor()
-            valores = [(int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
-            query = "INSERT INTO clientes_purificados (ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono) VALUES %s ON CONFLICT (ID_Cliente) DO NOTHING"
+            empresa_actual = st.session_state["empresa"]
+            
+            valores = [(empresa_actual, int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
+            query = "INSERT INTO clientes_purificados (empresa, ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono) VALUES %s ON CONFLICT (empresa, ID_Cliente) DO NOTHING"
+            
             execute_values(cursor, query, valores)
             conn.commit()
             cursor.close()
@@ -297,10 +314,8 @@ if modo == "Pipeline de Auditoría":
         
         tab1, tab2 = st.tabs(["Datos Purificados", "Sala de Cuarentena"])
         with tab1:
-            # Corregido: width='stretch' en lugar de use_container_width
             st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), width='stretch')
         with tab2:
-            # Corregido: width='stretch' en lugar de use_container_width
             st.dataframe(analisis[analisis['Error_IA'] > 0.05], width='stretch')
 
         with st.expander("📥 Obtener Informe de Auditoría Completo"):
@@ -312,9 +327,10 @@ if modo == "Pipeline de Auditoría":
                 
                 if submit_button:
                     if email_cliente and "@" in email_cliente:
-                        st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
+                        empresa_actual = st.session_state["empresa"]
+                        st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas, empresa_actual)
                         try:
-                            enviar_aviso_venta(nombre_cliente, email_cliente)
+                            enviar_aviso_venta(nombre_cliente, email_cliente, empresa_actual)
                         except:
                             pass 
                         st.success(f"Informe listo para {nombre_cliente}. ¡Ya puedes descargarlo!")
@@ -325,19 +341,30 @@ if modo == "Pipeline de Auditoría":
             st.download_button(
                 label="⬇️ DESCARGAR PDF AHORA",
                 data=st.session_state.pdf_generado,
-                file_name=f"Informe_Auditoria.pdf",
+                file_name=f"Informe_Auditoria_{st.session_state['empresa']}.pdf",
                 mime="application/pdf"
             )
 
 elif modo == "Base de Datos SQL":
-    st.subheader("Registros Almacenados en Servidor")
+    st.subheader(f"Registros Aislados: {st.session_state['empresa']}")
     conn = obtener_conexion()
-    df_sql = pd.read_sql_query("SELECT * FROM clientes_purificados", conn)
+    
+    # LECTURA MULTI-TENANT (El admin lo ve todo, los clientes solo lo suyo)
+    if st.session_state["empresa"] == "Spacenet_Admin":
+        df_sql = pd.read_sql_query("SELECT * FROM clientes_purificados", conn)
+    else:
+        empresa_limpia = st.session_state['empresa'].replace("'", "''")
+        df_sql = pd.read_sql_query(f"SELECT * FROM clientes_purificados WHERE empresa = '{empresa_limpia}'", conn)
+        
     conn.close()
     
-    # Corregido: width='stretch' en lugar de use_container_width
     st.dataframe(df_sql, width='stretch')
     
     if not df_sql.empty:
         csv = df_sql.to_csv(index=False).encode('utf-8')
-        st.download_button("Exportar Historial (CSV)", data=csv, file_name="auditoria_completa.csv", mime="text/csv")
+        st.download_button(
+            "Exportar Dataset Autorizado (CSV)", 
+            data=csv, 
+            file_name=f"auditoria_{st.session_state['empresa']}.csv", 
+            mime="text/csv"
+        )
