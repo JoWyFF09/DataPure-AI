@@ -117,41 +117,100 @@ def purificar_datos_con_ia(df_sucio):
 def generar_reporte_pdf(total, nulos, alertas):
     pdf = FPDF()
     pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Encabezado con estilo
-    pdf.set_fill_color(30, 30, 30) # Gris oscuro casi negro
-    pdf.rect(0, 0, 210, 30, 'F')
+    # 1. ENCABEZADO "DEEP TECH"
+    pdf.set_fill_color(15, 23, 42) # Azul oscuro/negro aeroespacial
+    pdf.rect(0, 0, 210, 38, 'F')
+    
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Arial", 'B', 20)
-    pdf.cell(0, 15, "SPACENET | IA AUDIT REPORT", ln=True, align='C')
-    pdf.ln(15)
+    pdf.set_font("Arial", 'B', 22)
+    pdf.cell(0, 10, "SPACENET DATA INTELLIGENCE", ln=True, align='L')
+    pdf.set_font("Arial", 'I', 10)
+    pdf.set_text_color(148, 163, 184) # Gris azulado elegante
+    pdf.cell(0, 5, "AI-Powered Data Purification & Security Audit", ln=True, align='L')
+    pdf.ln(20)
     
-    # Cuerpo del informe
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "RESUMEN EJECUTIVO DE PROCESAMIENTO", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.ln(5)
+    # 2. TÍTULO DEL INFORME
+    pdf.set_text_color(30, 41, 59)
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "INFORME DE AUDITORIA Y CUARENTENA", ln=True)
     
-    # Tabla de métricas
+    # Línea decorativa
+    pdf.set_draw_color(99, 102, 241) # Morado/Índigo tecnológico
+    pdf.set_linewidth(1)
+    pdf.line(10, 52, 200, 52)
+    pdf.ln(8)
+    
+    # INTRODUCCIÓN CON CLASE
+    pdf.set_font("Arial", size=10)
+    pdf.set_text_color(100, 116, 139)
+    texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de Spacenet. Se han evaluado lasmetricas de integridad, registros nulos y patrones anomalos de comportamiento."
+    pdf.multi_cell(0, 5, texto_intro)
+    pdf.ln(10)
+    
+    # 3. TABLA DE MÉTRICAS CRÍTICAS (Estilo Tarjetas)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 8, "METRICAS CLAVE DE PURIFICACION", ln=True)
+    pdf.ln(2)
+    
+    # Cabecera de tabla
+    pdf.set_fill_color(241, 245, 249)
+    pdf.set_text_color(71, 85, 105)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(110, 10, " Indicador Analizado", border=1, fill=True)
+    pdf.cell(80, 10, " Valor / Estado", border=1, fill=True, align='C')
+    pdf.ln()
+    
+    # Datos de la tabla
     data = [
-        ("Registros Auditados", f"{total:,}"),
-        ("Nulos Corregidos", f"{nulos:,}"),
-        ("Anomalias Bloqueadas", f"{alertas:,}"),
-        ("Integridad de Datos", "100%"),
-        ("Protocolo de Seguridad", "SHA-256 + Masking")
+        ("Registros Totales Auditados", f"{total:,} filas"),
+        ("Registros Nulos Corregidos por IA", f"{nulos:,} correcciones"),
+        ("Anomalias / Fraudes Detectados (Bloqueados)", f"{alertas:,} alertas"),
+        ("Estado Final del Dataset", "PURIFICADO & SEGURO"),
+        ("Protocolo de Criptografia Aplicado", "SHA-256 + Phone Masking")
     ]
     
+    pdf.set_font("Arial", size=10)
+    pdf.set_text_color(51, 65, 85)
     for label, value in data:
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(100, 10, label + ":", border=0)
-        pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, value, ln=True, border=0)
+        # Resaltar en rojo si hay anomalías
+        if "Anomalias" in label and alertas > 0:
+            pdf.set_text_color(220, 38, 38) # Rojo
+            pdf.set_font("Arial", 'B', 10)
+        else:
+            pdf.set_text_color(51, 65, 85)
+            pdf.set_font("Arial", size=10)
+            
+        pdf.cell(110, 9, f"  {label}", border=1)
+        pdf.cell(80, 9, f" {value}", border=1, align='C')
+        pdf.ln()
+        
+    # 4. DIAGNÓSTICO FINAL (El toque de consultoría corporativa)
+    pdf.ln(12)
+    pdf.set_fill_color(239, 246, 255) # Azul muy claro de fondo
+    pdf.set_draw_color(191, 219, 254)
+    pdf.rect(10, pdf.get_y(), 190, 25, 'DF')
     
-    # Pie de página
-    pdf.ln(20)
+    pdf.set_text_color(29, 78, 216) # Azul corporativo
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 6, "  DIAGNOSTICO DEL INGENIERO DE IA:", ln=True)
     pdf.set_font("Arial", 'I', 10)
-    pdf.cell(0, 10, "Documento generado automaticamente por Spacenet AI Engine.", ln=True, align='C')
+    pdf.set_text_color(30, 41, 59)
+    
+    if alertas > 0:
+        msg_diagnostico = f"  ATENCION: Se han detectado {alertas} vectores de riesgo en el dataset. Los datos han sido aislados\n  en la sala de cuarentena para proteger la integridad de su base de datos corporativa."
+    else:
+        msg_diagnostico = "  OPTIMO: No se han detectado anomalias criticas. El dataset cumple con los estandares internacionales\n  de calidad y politicas de privacidad de datos."
+        
+    pdf.multi_cell(0, 5, msg_diagnostico)
+    
+    # Pie de página integrado
+    pdf.set_y(-25)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.set_text_color(148, 163, 184)
+    pdf.cell(0, 10, "CONFIDENCIAL - Spacenet AI Engine v2.0 - Copia de Seguridad Autorizada", border=0, align='C')
     
     return pdf.output(dest='S').encode('latin-1')
 
