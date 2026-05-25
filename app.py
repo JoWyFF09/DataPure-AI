@@ -23,9 +23,7 @@ st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide"
 if "USUARIO_CORRECTO" in st.secrets and "PASSWORD_CORRECTA" in st.secrets:
     USUARIO_CORRECTO = st.secrets["USUARIO_CORRECTO"]
     PASSWORD_CORRECTA = st.secrets["PASSWORD_CORRECTA"]
-else:
-    USUARIO_CORRECTO = "admin"
-    PASSWORD_CORRECTA = "Spacenet2026"
+
 
 def verificar_credenciales(usuario, password):
     return usuario.strip() == USUARIO_CORRECTO and password.strip() == PASSWORD_CORRECTA
@@ -50,7 +48,7 @@ if not st.session_state["autenticado"]:
 # ==========================================
 # CORE DE DATOS Y AI
 # ==========================================
-DATABASE_URL = st.secrets.get("DATABASE_URL")
+DATABASE_URL = st.secrets["DATABASE_URL"]
 
 def obtener_conexion():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
@@ -161,8 +159,8 @@ def generar_reporte_pdf(total, nulos, alertas):
 # ENVÍO DE EMAIL
 # ==========================================
 def enviar_aviso_venta(nombre, email):
-    mi_correo = "joelrodriguezcr10@gmail.com"
-    contrasena = "kglsdruogpwitmfl" 
+    mi_correo = st.secrets["EMAIL_DESTINO"]
+    contrasena = st.secrets["EMAIL_PASSWORD"]
     
     msg = EmailMessage()
     msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ha auditado datos"
