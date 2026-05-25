@@ -14,6 +14,8 @@ from fpdf import FPDF
 import io
 import smtplib
 from email.message import EmailMessage
+import stripe
+
 # Ocultar el menú de Streamlit y el pie de página
 hide_st_style = """
             <style>
@@ -218,7 +220,33 @@ def enviar_aviso_venta(nombre, email, empresa):
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(mi_correo, contrasena)
         smtp.send_message(msg)
+# Configurar la clave de Stripe
+stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
 
+def verificar_suscripcion_activa(email):
+    """Busca en Stripe si el email tiene una suscripción mensual activa."""
+    if not email:
+        return False
+        
+    try:
+        # 1. Buscamos al cliente por su email en Stripe
+        clientes = stripe.Customer.list(email=email.strip(), limit=1)
+        if not clientes.data:
+            return False # El email no existe en Stripe
+            
+        cliente_id = clientes.data[0].id
+        
+        # 2. Buscamos si ese cliente tiene suscripciones activas
+        suscripciones = stripe.Subscription.list(customer=cliente_id, status="active")
+        
+        if len(suscripciones.data) > 0:
+            return True # ¡Tiene la suscripción de 299€ pagada al día!
+        else:
+            return False # Canceló o no ha pagado
+            
+    except Exception as e:
+        st.error(f"Error de conexión con la pasarela de pagos: {e}")
+        return False
 # ==========================================
 # DASHBOARD B2B (MULTI-TENANT)
 # ==========================================
@@ -385,14 +413,20 @@ elif modo == "Base de Datos SQL":
                 st.write("Redirigiendo a pasarela segura...")
                 st.link_button("COMPRAR AHORA", "https://buy.stripe.com/00w14gaRG1Dn6FT1L22Nq01")
             
-            with st.expander("¿Ya has pagado? Introduce tu código aquí:"):
-                codigo = st.text_input("Código de Activación")
-                if st.button("Activar Licencia"):
-                    if codigo == "SPACENET-PRO-2026":
-                        st.session_state.pro_unlocked = True
-                        st.rerun()
-                    else:
-                        st.error("Código incorrecto. Revisa tu email de confirmación de Stripe.")
+            # --- MURO DE PAGO (PAYWALL) ACTUALIZADO ---
+            with st.expander("🔑 ¿Ya tienes licencia? Verifica tu acceso"):
+                st.write("Introduce el email con el que realizaste la compra en Stripe:")
+                email_pago = st.text_input("Email de facturación")
+                
+                if st.button("Verificar Suscripción"):
+                    with st.spinner("Conectando con la base de datos de licencias..."):
+                        if verificar_suscripcion_activa(email_pago):
+                            st.session_state.pro_unlocked = True
+                            st.success("✅ Licencia validada. ¡Acceso concedido!")
+                            time.sleep(1) # Pequeña pausa para que el usuario lea el mensaje
+                            st.rerun()
+                        else:
+                            st.error("❌ No se ha encontrado una suscripción activa para este email. Si acabas de suscribirte, espera unos segundos.")
         
         else:
             st.success("✅ Licencia PRO activada. Descarga habilitada.")
