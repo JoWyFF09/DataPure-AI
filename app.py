@@ -375,8 +375,15 @@ elif modo == "Base de Datos SQL":
             st.session_state.pro_unlocked = False
             
         if not st.session_state.pro_unlocked:
-            st.warning("⚠️ Los datos purificados están bloqueados. Necesitas la licencia PRO.")
-            st.link_button(" DESBLOQUEAR DATOS (99€)", "https://buy.stripe.com/fZu9AM2laci15BPgFW2Nq00")
+            st.warning("⚠️ Los datos purificados están bloqueados. Se requiere acceso de nivel Corporativo.")
+            
+            # Botón para que te envíen un email (puedes usar mailto:)
+            st.link_button("💼 SOLICITAR ACCESO CORPORATIVO", "mailto:contacto@spacenet.ai?subject=Consulta Acceso Spacenet AI")
+            
+            # Opcional: Un botón para licencia individual a precio más alto
+            if st.button("Adquirir Licencia Individual (299€)"):
+                st.write("Redirigiendo a pasarela segura...")
+                st.link_button("COMPRAR AHORA", "https://buy.stripe.com/00w14gaRG1Dn6FT1L22Nq01")
             
             with st.expander("¿Ya has pagado? Introduce tu código aquí:"):
                 codigo = st.text_input("Código de Activación")
