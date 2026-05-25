@@ -203,7 +203,7 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.set_text_color(148, 163, 184)
     pdf.cell(0, 10, "CONFIDENCIAL - Spacenet AI Engine v2.0 - Copia de Seguridad Autorizada", border=0, align='C')
     
-    return pdf.output()
+    return bytes(pdf.output())
 
 def enviar_aviso_venta(nombre, email, empresa):
     mi_correo = st.secrets["EMAIL_DESTINO"]
