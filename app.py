@@ -378,7 +378,7 @@ elif modo == "Base de Datos SQL":
             st.warning("⚠️ Los datos purificados están bloqueados. Se requiere acceso de nivel Corporativo.")
             
             # Botón para que te envíen un email (puedes usar mailto:)
-            st.link_button("💼 SOLICITAR ACCESO CORPORATIVO", "mailto:contacto@spacenet.ai?subject=Consulta Acceso Spacenet AI")
+            st.link_button("💼 SOLICITAR ACCESO CORPORATIVO", "mailto:joelrodriguezcr10@gmail.com?subject=Consulta Acceso Spacenet AI")
             
             # Opcional: Un botón para licencia individual a precio más alto
             if st.button("Adquirir Licencia Individual (299€)"):
