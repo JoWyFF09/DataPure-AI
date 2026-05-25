@@ -121,11 +121,10 @@ def purificar_datos_con_ia(df_sucio):
 def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
     
+    # Header Premium
     pdf.set_fill_color(15, 23, 42) 
     pdf.rect(0, 0, 210, 38, 'F')
-    
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Arial", 'B', 22)
     pdf.cell(0, 10, "SPACENET DATA INTELLIGENCE", ln=True, align='L')
@@ -134,19 +133,16 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.cell(0, 5, "AI-Powered Data Purification & Security Audit", ln=True, align='L')
     pdf.ln(20)
     
+    # Sección Impacto de Negocio (NUEVA)
     pdf.set_text_color(30, 41, 59)
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, f"INFORME DE AUDITORIA: {empresa.upper()}", ln=True)
-    
-    pdf.set_draw_color(99, 102, 241) 
-    pdf.set_line_width(1)
-    pdf.line(10, 52, 200, 52)
-    pdf.ln(8)
-    
-    pdf.set_font("Arial", size=10)
-    pdf.set_text_color(100, 116, 139)
-    texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de Spacenet. Se han evaluado las metricas de integridad, registros nulos y patrones anomalos de comportamiento."
-    pdf.multi_cell(0, 5, texto_intro)
+    pdf.cell(0, 10, "IMPACTO DE NEGOCIO ESTIMADO", ln=True)
+    pdf.set_fill_color(240, 253, 244) # Verde suave
+    pdf.rect(10, pdf.get_y(), 190, 20, 'F')
+    pdf.set_text_color(22, 101, 52)
+    pdf.set_font("Arial", size=11)
+    ahorro_estimado = alertas * 15 # Asumimos 15€ ahorrados por cada error bloqueado
+    pdf.multi_cell(0, 8, f"  Al bloquear {alertas} anomalias, hemos evitado un posible coste operativo o de fraude\n  estimado en {ahorro_estimado}€ para su operacion actual.")
     pdf.ln(10)
     
     pdf.set_font("Arial", 'B', 12)
@@ -207,7 +203,7 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.set_text_color(148, 163, 184)
     pdf.cell(0, 10, "CONFIDENCIAL - Spacenet AI Engine v2.0 - Copia de Seguridad Autorizada", border=0, align='C')
     
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output()
 
 def enviar_aviso_venta(nombre, email, empresa):
     mi_correo = st.secrets["EMAIL_DESTINO"]
