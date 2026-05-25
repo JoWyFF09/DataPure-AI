@@ -142,7 +142,7 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.set_text_color(22, 101, 52)
     pdf.set_font("Arial", size=11)
     ahorro_estimado = alertas * 15 # Asumimos 15€ ahorrados por cada error bloqueado
-    pdf.multi_cell(0, 8, f"  Al bloquear {alertas} anomalias, hemos evitado un posible coste operativo o de fraude\n  estimado en {ahorro_estimado}€ para su operacion actual.")
+    pdf.multi_cell(0, 8, f"  Al bloquear {alertas} anomalias, hemos evitado un posible coste operativo o de fraude\n  estimado en {ahorro_estimado} EUR para su operacion actual.")
     pdf.ln(10)
     
     pdf.set_font("Arial", 'B', 12)
@@ -157,7 +157,7 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.cell(80, 10, " Valor / Estado", border=1, fill=True, align='C')
     pdf.ln()
     
-    pdf.cell(0, 10, f"Coste estimado de ineficiencia: {alertas * 0.50}€", ln=True)
+    pdf.cell(0, 10, f"Coste estimado de ineficiencia: {alertas * 0.50} EUR", ln=True)
     
     data = [
         ("Registros Totales Auditados", f"{total:,} filas"),
