@@ -290,22 +290,27 @@ if modo == "Pipeline de Auditoría":
             df_limpio, total, nulos, alertas, analisis = purificar_datos_con_ia(df)
             
             # GUARDADO MULTI-TENANT
-            conn = obtener_conexion()
-            cursor = conn.cursor()
-            empresa_actual = st.session_state["empresa"]
+            try:
+                conn = obtener_conexion()
+                cursor = conn.cursor()
+                empresa_actual = st.session_state["empresa"]
             
-            valores = [(empresa_actual, int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
-            query = "INSERT INTO clientes_purificados (empresa, ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono) VALUES %s ON CONFLICT (empresa, ID_Cliente) DO NOTHING"
+                valores = [(empresa_actual, int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
+                query = "INSERT INTO clientes_purificados (empresa, ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono) VALUES %s ON CONFLICT (empresa, ID_Cliente) DO NOTHING"
             
-            execute_values(cursor, query, valores)
-            conn.commit()
-            cursor.close()
-            conn.close()
+                execute_values(cursor, query, valores)
+                conn.commit()
+            except Exception as e:
+                conn.rollback() # Limpia el error de transacción
+                st.error(f"Error al guardar en DB: {e}")    
+            finally:
+                cursor.close()
+                conn.close()
 
-            st.session_state.df_procesado = df_limpio
-            st.session_state.analisis = analisis
-            st.session_state.metricas = (total, nulos, alertas)
-            st.session_state.pdf_generado = None
+                st.session_state.df_procesado = df_limpio
+                st.session_state.analisis = analisis
+                st.session_state.metricas = (total, nulos, alertas)
+                st.session_state.pdf_generado = None
 
     if st.session_state.df_procesado is not None:
         df_limpio = st.session_state.df_procesado
