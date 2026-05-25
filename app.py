@@ -15,7 +15,7 @@ import io
 import smtplib
 from email.message import EmailMessage
 
-st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
+st.set_page_config(page_title="DataPure AI - Limpieza y Auditoría de Datos", layout="wide")
 
 # ==========================================
 # AUTHENTICATION
@@ -125,7 +125,7 @@ def generar_reporte_pdf(total, nulos, alertas):
     
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Arial", 'B', 22)
-    pdf.cell(0, 10, "SPACENET DATA INTELLIGENCE", ln=True, align='L')
+    pdf.cell(0, 10, "DataPure AI", ln=True, align='L')
     pdf.set_font("Arial", 'I', 10)
     pdf.set_text_color(148, 163, 184) # Gris azulado elegante
     pdf.cell(0, 5, "AI-Powered Data Purification & Security Audit", ln=True, align='L')
@@ -208,7 +208,7 @@ def generar_reporte_pdf(total, nulos, alertas):
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
     pdf.set_text_color(148, 163, 184)
-    pdf.cell(0, 10, "CONFIDENCIAL - Spacenet AI Engine v2.0 - Copia de Seguridad Autorizada", border=0, align='C')
+    pdf.cell(0, 10, "CONFIDENCIAL - DataPure AI v2.0 - Copia de Seguridad Autorizada", border=0, align='C')
     
     return pdf.output(dest='S').encode('latin-1')
 
@@ -250,7 +250,7 @@ if st.sidebar.button("Vaciar Base de Datos"):
 
 modo = st.sidebar.radio("Módulos", ["Pipeline de Auditoría", "Base de Datos SQL"])
 
-st.title("Spacenet Data Intelligence")
+st.title("DataPure AI")
 
 if modo == "Pipeline de Auditoría":
     st.subheader("Ingesta y Procesamiento Neuronal")
