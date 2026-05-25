@@ -11,11 +11,38 @@ import re
 from fpdf import FPDF
 import smtplib
 from email.message import EmailMessage
+import os
 
 st.set_page_config(page_title="DataPure AI - Limpieza y Auditoría de Datos", layout="wide")
 
 # ==========================================
-# AUTHENTICATION + MULTI-USUARIO
+# CARGAR MODELO IA (PRIMERO - IMPORTANTE)
+# ==========================================
+@st.cache_resource
+def cargar_cerebro_ia():
+    try:
+        if os.path.exists('autoencoder_pesos.weights.h5') and os.path.exists('escalador_ia.pkl'):
+            input_layer = layers.Input(shape=(4,))
+            encoded = layers.Dense(8, activation='relu')(input_layer)
+            bottleneck = layers.Dense(3, activation='relu')(encoded)
+            decoded = layers.Dense(8, activation='relu')(bottleneck)
+            output_layer = layers.Dense(4, activation='sigmoid')(decoded)
+            
+            model = models.Model(inputs=input_layer, outputs=output_layer)
+            model.load_weights('autoencoder_pesos.weights.h5')
+            scaler = joblib.load('escalador_ia.pkl')
+            return model, scaler
+        else:
+            st.warning("⚠️ Archivos del modelo no encontrados.")
+            return None, None
+    except Exception as e:
+        st.error(f"Error al cargar el modelo IA: {e}")
+        return None, None
+
+autoencoder, scaler = cargar_cerebro_ia()
+
+# ==========================================
+# AUTHENTICATION
 # ==========================================
 if "USUARIO_CORRECTO" in st.secrets and "PASSWORD_CORRECTA" in st.secrets:
     USUARIO_CORRECTO = st.secrets["USUARIO_CORRECTO"]
@@ -28,90 +55,32 @@ if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 if "usuario_actual" not in st.session_state:
     st.session_state["usuario_actual"] = None
-if "es_admin" not in st.session_state:
-    st.session_state["es_admin"] = False
 
-# ====================== REGISTRO DE USUARIOS ======================
-def registrar_usuario(email, nombre_empresa, password):
-    conn = obtener_conexion()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            INSERT INTO usuarios (email, nombre_empresa, password)
-            VALUES (%s, %s, %s) RETURNING id
-        """, (email, nombre_empresa, password))
-        user_id = cursor.fetchone()[0]
-        conn.commit()
-        return user_id
-    except:
-        conn.rollback()
-        return None
-    finally:
-        cursor.close()
-        conn.close()
-
-# ====================== LOGIN ======================
 if not st.session_state["autenticado"]:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.title("Acceso a DataPure AI")
-        
-        tab1, tab2 = st.tabs(["Iniciar Sesión", "Crear Cuenta"])
-        
-        with tab1:
-            user_input = st.text_input("Usuario Corporativo / Email")
-            pass_input = st.text_input("Contraseña", type="password")
-            if st.button("Ingresar"):
-                if verificar_credenciales(user_input, pass_input):
-                    st.session_state["autenticado"] = True
-                    st.session_state["usuario_actual"] = user_input
-                    st.session_state["es_admin"] = True
-                    st.rerun()
-                else:
-                    st.error("Credenciales inválidas.")
-        
-        with tab2:
-            st.subheader("Crear Nueva Cuenta")
-            nuevo_email = st.text_input("Email Corporativo")
-            nuevo_nombre = st.text_input("Nombre de la Empresa")
-            nueva_pass = st.text_input("Crea una contraseña", type="password")
-            if st.button("Crear Cuenta"):
-                if nuevo_email and nuevo_nombre and nueva_pass:
-                    user_id = registrar_usuario(nuevo_email, nuevo_nombre, nueva_pass)
-                    if user_id:
-                        st.success("¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.")
-                    else:
-                        st.error("El email ya está registrado.")
-                else:
-                    st.error("Completa todos los campos.")
+        user_input = st.text_input("Usuario Corporativo")
+        pass_input = st.text_input("Contraseña", type="password")
+        if st.button("Ingresar"):
+            if verificar_credenciales(user_input, pass_input):
+                st.session_state["autenticado"] = True
+                st.session_state["usuario_actual"] = user_input
+                st.rerun()
+            else:
+                st.error("Credenciales inválidas.")
     st.stop()
 
 # ==========================================
-# CORE DE DATOS Y AI
+# CORE DE DATOS
 # ==========================================
 DATABASE_URL = st.secrets["DATABASE_URL"]
 
 def obtener_conexion():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-@st.cache_resource
-def cargar_cerebro_ia():
-    if os.path.exists('autoencoder_pesos.weights.h5') and os.path.exists('escalador_ia.pkl'):
-        input_layer = layers.Input(shape=(4,))
-        encoded = layers.Dense(8, activation='relu')(input_layer)
-        bottleneck = layers.Dense(3, activation='relu')(encoded)
-        decoded = layers.Dense(8, activation='relu')(bottleneck)
-        output_layer = layers.Dense(4, activation='sigmoid')(decoded)
-        model = models.Model(inputs=input_layer, outputs=output_layer)
-        model.load_weights('autoencoder_pesos.weights.h5')
-        scaler = joblib.load('escalador_ia.pkl')
-        return model, scaler
-    return None, None
-
-autoencoder, scaler = cargar_cerebro_ia()
-
 # ==========================================
-# LÓGICA DE PURIFICACIÓN
+# FUNCIONES DE PURIFICACIÓN
 # ==========================================
 def anonimizar_texto(texto):
     return hashlib.sha256(str(texto).encode('utf-8')).hexdigest()[:12]
@@ -123,6 +92,7 @@ def blindar_telefono(telefono):
 
 def purificar_datos_con_ia(df_sucio):
     df_limpio = df_sucio.copy()
+    
     df_limpio['Edad'] = df_limpio['Edad'].fillna(df_limpio['Edad'].median() if not df_limpio['Edad'].dropna().empty else 40)
     df_limpio['Ingresos_Anuales'] = df_limpio['Ingresos_Anuales'].fillna(df_limpio['Ingresos_Anuales'].median())
     
@@ -147,7 +117,7 @@ def purificar_datos_con_ia(df_sucio):
     return df_aprobado, len(df_sucio), df_sucio['Edad'].isnull().sum(), len(df_sucio[errores_reconstruccion > UMBRAL_IA]), df_sucio
 
 # ==========================================
-# GENERADOR DE REPORTES (PDF) - Completo
+# GENERADOR PDF
 # ==========================================
 def generar_reporte_pdf(total, nulos, alertas):
     pdf = FPDF()
@@ -176,7 +146,7 @@ def generar_reporte_pdf(total, nulos, alertas):
     
     pdf.set_font("Arial", size=10)
     pdf.set_text_color(100, 116, 139)
-    texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de DataPure AI."
+    texto_intro = "Este documento contiene los resultados del análisis neuronal realizado por DataPure AI."
     pdf.multi_cell(0, 5, texto_intro)
     pdf.ln(10)
     
@@ -195,9 +165,9 @@ def generar_reporte_pdf(total, nulos, alertas):
     data = [
         ("Registros Totales Auditados", f"{total:,} filas"),
         ("Registros Nulos Corregidos por IA", f"{nulos:,} correcciones"),
-        ("Anomalias / Fraudes Detectados (Bloqueados)", f"{alertas:,} alertas"),
+        ("Anomalias / Fraudes Detectados", f"{alertas:,} alertas"),
         ("Estado Final del Dataset", "PURIFICADO & SEGURO"),
-        ("Protocolo de Criptografia Aplicado", "SHA-256 + Phone Masking")
+        ("Protocolo de Criptografia", "SHA-256 + Phone Masking")
     ]
     
     pdf.set_font("Arial", size=10)
@@ -210,24 +180,6 @@ def generar_reporte_pdf(total, nulos, alertas):
         pdf.cell(110, 9, f"  {label}", border=1)
         pdf.cell(80, 9, f" {value}", border=1, align='C')
         pdf.ln()
-        
-    pdf.ln(12)
-    pdf.set_fill_color(239, 246, 255)
-    pdf.set_draw_color(191, 219, 254)
-    pdf.rect(10, pdf.get_y(), 190, 25, 'DF')
-    
-    pdf.set_text_color(29, 78, 216)
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 6, "  DIAGNOSTICO DEL INGENIERO DE IA:", ln=True)
-    pdf.set_font("Arial", 'I', 10)
-    pdf.set_text_color(30, 41, 59)
-    
-    if alertas > 0:
-        msg_diagnostico = f"  ATENCION: Se han detectado {alertas} vectores de riesgo en el dataset."
-    else:
-        msg_diagnostico = "  OPTIMO: No se han detectado anomalias criticas."
-        
-    pdf.multi_cell(0, 5, msg_diagnostico)
     
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
@@ -242,16 +194,14 @@ def generar_reporte_pdf(total, nulos, alertas):
 st.sidebar.title("DataPure AI")
 if st.sidebar.button("Cerrar Sesión"):
     st.session_state["autenticado"] = False
-    st.session_state["usuario_actual"] = None
     st.rerun()
 
 st.sidebar.markdown("---")
-modo = st.sidebar.radio("Módulos", ["Pipeline de Auditoría", "Mis Análisis", "Base de Datos SQL", "Precios y Planes"])
+modo = st.sidebar.radio("Módulos", ["Pipeline de Auditoría", "Precios y Planes", "Base de Datos SQL"])
 
 st.title("DataPure AI")
 
 if modo == "Pipeline de Auditoría":
-    # ... (aquí iría tu código completo del pipeline, lo mantengo igual que antes)
     st.subheader("Ingesta y Procesamiento Neuronal")
     archivo = st.file_uploader("Cargar dataset", type=["csv", "xlsx"])
     
@@ -267,10 +217,12 @@ if modo == "Pipeline de Auditoría":
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df_limpio, total, nulos, alertas, analisis = purificar_datos_con_ia(df)
             
+            # Guardar en BD
             conn = obtener_conexion()
             cursor = conn.cursor()
-            valores = [(int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono']), st.session_state["usuario_actual"]) for _, row in df_limpio.iterrows()]
-            query = "INSERT INTO clientes_purificados (ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono, usuario_email) VALUES %s ON CONFLICT (ID_Cliente) DO NOTHING"
+            valores = [(int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), 
+                       float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
+            query = "INSERT INTO clientes_purificados (ID_Cliente, Nombre, Email, Edad, Ingresos_Anuales, Telefono) VALUES %s ON CONFLICT (ID_Cliente) DO NOTHING"
             execute_values(cursor, query, valores)
             conn.commit()
             cursor.close()
@@ -281,16 +233,76 @@ if modo == "Pipeline de Auditoría":
             st.session_state.metricas = (total, nulos, alertas)
             st.session_state.pdf_generado = None
 
-    # Resto del código de visualización (mantenido igual)
     if st.session_state.df_procesado is not None:
-        # ... (tu código original de métricas, tabs, etc.)
-        pass   # ← Aquí pega tu código original de visualización
+        df_limpio = st.session_state.df_procesado
+        analisis = st.session_state.analisis
+        total, nulos, alertas = st.session_state.metricas
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Registros Auditados", f"{total:,}")
+        col2.metric("Nulos Corregidos", f"{nulos:,}")
+        col3.metric("Anomalías Bloqueadas", f"{alertas:,}")
+        
+        st.line_chart(analisis['Error_IA'].head(100))
+        
+        tab1, tab2 = st.tabs(["Datos Purificados", "Sala de Cuarentena"])
+        with tab1:
+            st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso'], errors='ignore'), use_container_width=True)
+        with tab2:
+            st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
+
+        with st.expander("📥 Obtener Informe de Auditoría Completo"):
+            with st.form("form_captacion"):
+                nombre_cliente = st.text_input("Nombre de la Empresa / Contacto")
+                email_cliente = st.text_input("Email Corporativo")
+                submit_button = st.form_submit_button("Generar PDF")
+                if submit_button and email_cliente and "@" in email_cliente:
+                    st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
+                    st.success(f"Informe listo para {nombre_cliente}.")
+        
+        if st.session_state.pdf_generado:
+            st.download_button("⬇️ DESCARGAR PDF AHORA", 
+                             data=st.session_state.pdf_generado,
+                             file_name="Informe_Auditoria_DataPure.pdf",
+                             mime="application/pdf")
 
 elif modo == "Precios y Planes":
-    # (tu código de precios que ya tenías)
     st.title("Precios y Planes - DataPure AI")
-    # ... resto igual
+    st.markdown("### Limpia y audita tus bases de clientes con Inteligencia Artificial")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.subheader("Starter")
+        st.write("**29 USD**")
+        st.write("• 1 Análisis completo")
+        st.write("• Informe PDF profesional")
+        if st.button("Elegir Starter"):
+            st.success("Te contactaré para procesar el pago.")
+    
+    with col2:
+        st.subheader("Pro")
+        st.write("**79 USD / mes**")
+        st.write("• Análisis ilimitados")
+        st.write("• Historial completo")
+        st.write("• Soporte prioritario")
+        if st.button("Elegir Pro"):
+            st.success("¡Excelente! Próximamente activaremos pago recurrente.")
+    
+    with col3:
+        st.subheader("Enterprise")
+        st.write("**199 USD / mes**")
+        st.write("• Todo lo del Pro")
+        st.write("• Soporte dedicado")
+        if st.button("Contactar Enterprise"):
+            st.info("Te escribiremos pronto.")
 
-# Añade los demás elif según necesites
+    st.info("💡 Los primeros 5 clientes reciben 50% de descuento en el plan Pro.")
+
+elif modo == "Base de Datos SQL":
+    st.subheader("Registros Almacenados en Servidor")
+    conn = obtener_conexion()
+    df_sql = pd.read_sql_query("SELECT * FROM clientes_purificados ORDER BY fecha_limpiado DESC LIMIT 100", conn)
+    conn.close()
+    st.dataframe(df_sql, use_container_width=True)
 
 st.sidebar.caption(f"Conectado como: {st.session_state.get('usuario_actual', 'Admin')}")
