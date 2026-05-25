@@ -349,22 +349,39 @@ elif modo == "Base de Datos SQL":
     st.subheader(f"Registros Aislados: {st.session_state['empresa']}")
     conn = obtener_conexion()
     
-    # LECTURA MULTI-TENANT (El admin lo ve todo, los clientes solo lo suyo)
     if st.session_state["empresa"] == "Spacenet_Admin":
         df_sql = pd.read_sql_query("SELECT * FROM clientes_purificados", conn)
     else:
         empresa_limpia = st.session_state['empresa'].replace("'", "''")
         df_sql = pd.read_sql_query(f"SELECT * FROM clientes_purificados WHERE empresa = '{empresa_limpia}'", conn)
-        
     conn.close()
     
     st.dataframe(df_sql, width='stretch')
     
+    # --- MURO DE PAGO (PAYWALL) ---
     if not df_sql.empty:
-        csv = df_sql.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            "Exportar Dataset Autorizado (CSV)", 
-            data=csv, 
-            file_name=f"auditoria_{st.session_state['empresa']}.csv", 
-            mime="text/csv"
-        )
+        if 'pro_unlocked' not in st.session_state:
+            st.session_state.pro_unlocked = False
+            
+        if not st.session_state.pro_unlocked:
+            st.warning("⚠️ Los datos purificados están bloqueados. Necesitas la licencia PRO.")
+            st.link_button(" DESBLOQUEAR DATOS (49€)", "https://buy.stripe.com/fZu9AM2laci15BPgFW2Nq00")
+            
+            with st.expander("¿Ya has pagado? Introduce tu código aquí:"):
+                codigo = st.text_input("Código de Activación")
+                if st.button("Activar Licencia"):
+                    if codigo == "SPACENET-PRO-2026":
+                        st.session_state.pro_unlocked = True
+                        st.rerun()
+                    else:
+                        st.error("Código incorrecto. Revisa tu email de confirmación de Stripe.")
+        
+        else:
+            st.success("✅ Licencia PRO activada. Descarga habilitada.")
+            csv = df_sql.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "⬇️ EXPORTAR DATASET PURIFICADO (CSV)", 
+                data=csv, 
+                file_name=f"dataset_limpio_{st.session_state['empresa']}.csv", 
+                mime="text/csv"
+            )
