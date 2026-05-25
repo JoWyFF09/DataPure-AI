@@ -161,6 +161,8 @@ def generar_reporte_pdf(total, nulos, alertas, empresa):
     pdf.cell(80, 10, " Valor / Estado", border=1, fill=True, align='C')
     pdf.ln()
     
+    pdf.cell(0, 10, f"Coste estimado de ineficiencia: {alertas * 0.50}€", ln=True)
+    
     data = [
         ("Registros Totales Auditados", f"{total:,} filas"),
         ("Registros Nulos Corregidos por IA", f"{nulos:,} correcciones"),
