@@ -23,7 +23,9 @@ st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide"
 if "USUARIO_CORRECTO" in st.secrets and "PASSWORD_CORRECTA" in st.secrets:
     USUARIO_CORRECTO = st.secrets["USUARIO_CORRECTO"]
     PASSWORD_CORRECTA = st.secrets["PASSWORD_CORRECTA"]
-    
+else:
+    USUARIO_CORRECTO = "admin"
+    PASSWORD_CORRECTA = "Spacenet2026"
 
 def verificar_credenciales(usuario, password):
     return usuario.strip() == USUARIO_CORRECTO and password.strip() == PASSWORD_CORRECTA
@@ -110,6 +112,7 @@ def purificar_datos_con_ia(df_sucio):
     df_aprobado['Telefono'] = df_aprobado['Telefono'].apply(blindar_telefono)
     
     return df_aprobado, len(df_sucio), df_sucio['Edad'].isnull().sum(), len(df_sucio[errores_reconstruccion > UMBRAL_IA]), df_sucio
+
 # ==========================================
 # GENERADOR DE REPORTES (PDF)
 # ==========================================
@@ -153,6 +156,24 @@ def generar_reporte_pdf(total, nulos, alertas):
     pdf.cell(0, 10, "Documento generado automaticamente por Spacenet AI Engine.", ln=True, align='C')
     
     return pdf.output(dest='S').encode('latin-1')
+
+# ==========================================
+# ENVÍO DE EMAIL
+# ==========================================
+def enviar_aviso_venta(nombre, email):
+    mi_correo = "joelrodriguezcr10@gmail.com"
+    contrasena = "kglsdruogpwitmfl" 
+    
+    msg = EmailMessage()
+    msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ha auditado datos"
+    msg['From'] = mi_correo
+    msg['To'] = mi_correo 
+    msg.set_content(f"El cliente {nombre} ({email}) ha descargado un informe de auditoria.")
+    
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(mi_correo, contrasena)
+        smtp.send_message(msg)
+
 # ==========================================
 # DASHBOARD PROFESIONAL
 # ==========================================
@@ -180,12 +201,21 @@ if modo == "Pipeline de Auditoría":
     st.subheader("Ingesta y Procesamiento Neuronal")
     archivo = st.file_uploader("Cargar dataset", type=["csv", "xlsx"])
     
+    # 1. Definir estados iniciales para que la web no se reinicie
+    if 'df_procesado' not in st.session_state:
+        st.session_state.df_procesado = None
+        st.session_state.analisis = None
+        st.session_state.metricas = None
+    if 'pdf_generado' not in st.session_state:
+        st.session_state.pdf_generado = None
+
+    # BOTÓN DE PROCESAMIENTO PRINCIPAL
     if archivo and st.button("Ejecutar Análisis"):
         with st.spinner("Procesando red neuronal..."):
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df_limpio, total, nulos, alertas, analisis = purificar_datos_con_ia(df)
             
-            # Inserción
+            # Inserción a SQL
             conn = obtener_conexion()
             cursor = conn.cursor()
             valores = [(int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
@@ -195,74 +225,64 @@ if modo == "Pipeline de Auditoría":
             cursor.close()
             conn.close()
 
-            # Métricas
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Registros Auditados", f"{total:,}")
-            col2.metric("Nulos Corregidos", f"{nulos:,}")
-            col3.metric("Anomalías Bloqueadas", f"{alertas:,}")
-            
-            st.write("Gráfico de dispersión de error (Autoencoder):")
-            st.line_chart(analisis['Error_IA'].head(100))
-            
-            # TABS DE VISTA
-            tab1, tab2 = st.tabs(["Datos Purificados", "Sala de Cuarentena"])
-            with tab1:
-                st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), use_container_width=True)
-            with tab2:
-                st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
-            
-            
-            # BOTÓN DE DESCARGA PDF
-            def enviar_aviso_venta(nombre, email):
-               # Configuración de tu cuenta
-               mi_correo = "joelrodriguezcr10@gmail.com"
-               contrasena = "kglsdruogpwitmfl" # La que generaste en Google
-    
-               msg = EmailMessage()
-               msg['Subject'] = f"🚀 NUEVA VENTA: {nombre} ha auditado datos"
-               msg['From'] = mi_correo
-               msg['To'] = mi_correo # Te lo envías a ti mismo
-               msg.set_content(f"El cliente {nombre} ({email}) ha descargado un informe de auditoria.")
-    
-               with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                  smtp.login(mi_correo, contrasena)
-                  smtp.send_message(msg)
-                  
-            # --- EN TU BLOQUE DE "PIPELINE DE AUDITORÍA" ---
+            # Guardar en memoria (Session State)
+            st.session_state.df_procesado = df_limpio
+            st.session_state.analisis = analisis
+            st.session_state.metricas = (total, nulos, alertas)
+            st.session_state.pdf_generado = None # Resetear PDF anterior si se sube archivo nuevo
 
-            # 1. Definir estado inicial
-            if 'pdf_generado' not in st.session_state:
-               st.session_state.pdf_generado = None
+    # 2. MOSTRAR RESULTADOS SI YA HAY DATOS PROCESADOS (FUERA DEL BOTÓN DE EJECUTAR)
+    if st.session_state.df_procesado is not None:
+        df_limpio = st.session_state.df_procesado
+        analisis = st.session_state.analisis
+        total, nulos, alertas = st.session_state.metricas
 
-            # 2. El Formulario
-            with st.expander("📥 Obtener Informe de Auditoría"):
-               with st.form("form_captacion"):
-                   nombre_cliente = st.text_input("Nombre de la Empresa")
-                   email_cliente = st.text_input("Email Corporativo")
-                   submit_button = st.form_submit_button("Generar Informe")
+        # Métricas
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Registros Auditados", f"{total:,}")
+        col2.metric("Nulos Corregidos", f"{nulos:,}")
+        col3.metric("Anomalías Bloqueadas", f"{alertas:,}")
         
-                   if submit_button:
-                      if email_cliente and "@" in email_cliente:
-                          # Generamos y guardamos en estado
-                          st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
-                          try:
-                              enviar_aviso_venta(nombre_cliente, email_cliente)
-                          except:
-                              pass
-                          st.success("Informe generado. ¡Ya puedes descargarlo!")
-                      else:
-                          st.error("Email inválido.")
+        st.write("Gráfico de dispersión de error (Autoencoder):")
+        st.line_chart(analisis['Error_IA'].head(100))
+        
+        # TABS DE VISTA
+        tab1, tab2 = st.tabs(["Datos Purificados", "Sala de Cuarentena"])
+        with tab1:
+            st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), use_container_width=True)
+        with tab2:
+            st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
 
-            # 3. Botón de descarga FUERA del formulario
-            if st.session_state.pdf_generado:
-                st.download_button(
-                   label="⬇️ DESCARGAR PDF AHORA",
-                   data=st.session_state.pdf_generado,
-                   file_name="Reporte_Auditoria.pdf",
-                   mime="application/pdf"
-                )
-                    
-            
+        # 3. EL FORMULARIO (AHORA ES INDEPENDIENTE Y NO ROMPE LA PÁGINA)
+        with st.expander("📥 Obtener Informe de Auditoría Completo"):
+            st.write("Introduce tus datos para generar y descargar el informe oficial.")
+            with st.form("form_captacion"):
+                nombre_cliente = st.text_input("Nombre de la Empresa / Contacto")
+                email_cliente = st.text_input("Email Corporativo")
+                submit_button = st.form_submit_button("Generar PDF")
+                
+                if submit_button:
+                    if email_cliente and "@" in email_cliente:
+                        # Generamos y guardamos el PDF en estado
+                        st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
+                        # Intentamos enviar el correo
+                        try:
+                            enviar_aviso_venta(nombre_cliente, email_cliente)
+                        except:
+                            pass 
+                        st.success(f"Informe listo para {nombre_cliente}. ¡Ya puedes descargarlo!")
+                    else:
+                        st.error("Por favor, introduce un email corporativo válido.")
+
+        # 4. BOTÓN DE DESCARGA (APARECE CUANDO EL PDF SE GENERA)
+        if st.session_state.pdf_generado:
+            st.download_button(
+                label="⬇️ DESCARGAR PDF AHORA",
+                data=st.session_state.pdf_generado,
+                file_name=f"Informe_Auditoria.pdf",
+                mime="application/pdf"
+            )
+
 elif modo == "Base de Datos SQL":
     st.subheader("Registros Almacenados en Servidor")
     conn = obtener_conexion()
