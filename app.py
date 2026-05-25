@@ -365,7 +365,7 @@ elif modo == "Base de Datos SQL":
             
         if not st.session_state.pro_unlocked:
             st.warning("⚠️ Los datos purificados están bloqueados. Necesitas la licencia PRO.")
-            st.link_button(" DESBLOQUEAR DATOS (49€)", "https://buy.stripe.com/fZu9AM2laci15BPgFW2Nq00")
+            st.link_button(" DESBLOQUEAR DATOS (99€)", "https://buy.stripe.com/fZu9AM2laci15BPgFW2Nq00")
             
             with st.expander("¿Ya has pagado? Introduce tu código aquí:"):
                 codigo = st.text_input("Código de Activación")
