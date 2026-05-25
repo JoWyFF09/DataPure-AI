@@ -15,7 +15,7 @@ import io
 import smtplib
 from email.message import EmailMessage
 
-st.set_page_config(page_title="Caca | Control de Misiones", layout="wide")
+st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
 
 # ==========================================
 # AUTHENTICATION
