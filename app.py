@@ -14,7 +14,15 @@ from fpdf import FPDF
 import io
 import smtplib
 from email.message import EmailMessage
-
+# Ocultar el menú de Streamlit y el pie de página
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 st.set_page_config(page_title="Spacenet AI | Control de Misiones", layout="wide")
 
 # ==========================================
