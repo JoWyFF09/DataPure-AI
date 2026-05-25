@@ -136,20 +136,20 @@ def generar_reporte_pdf(total, nulos, alertas):
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 10, "INFORME DE AUDITORIA Y CUARENTENA", ln=True)
     
-    # Línea decorativa
+    # Línea decorativa (Corregido: set_line_width)
     pdf.set_draw_color(99, 102, 241) # Morado/Índigo tecnológico
-    pdf.set_linewidth(1)
+    pdf.set_line_width(1)
     pdf.line(10, 52, 200, 52)
     pdf.ln(8)
     
     # INTRODUCCIÓN CON CLASE
     pdf.set_font("Arial", size=10)
     pdf.set_text_color(100, 116, 139)
-    texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de Spacenet. Se han evaluado lasmetricas de integridad, registros nulos y patrones anomalos de comportamiento."
+    texto_intro = "Este documento contiene los resultados del analisis neuronal realizado por el motor autoencoder de Spacenet. Se han evaluado las metricas de integridad, registros nulos y patrones anomalos de comportamiento."
     pdf.multi_cell(0, 5, texto_intro)
     pdf.ln(10)
     
-    # 3. TABLA DE MÉTRICAS CRÍTICAS (Estilo Tarjetas)
+    # 3. TABLA DE MÉTRICAS CRÍTICAS
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(15, 23, 42)
     pdf.cell(0, 8, "METRICAS CLAVE DE PURIFICACION", ln=True)
@@ -173,9 +173,7 @@ def generar_reporte_pdf(total, nulos, alertas):
     ]
     
     pdf.set_font("Arial", size=10)
-    pdf.set_text_color(51, 65, 85)
     for label, value in data:
-        # Resaltar en rojo si hay anomalías
         if "Anomalias" in label and alertas > 0:
             pdf.set_text_color(220, 38, 38) # Rojo
             pdf.set_font("Arial", 'B', 10)
@@ -187,13 +185,13 @@ def generar_reporte_pdf(total, nulos, alertas):
         pdf.cell(80, 9, f" {value}", border=1, align='C')
         pdf.ln()
         
-    # 4. DIAGNÓSTICO FINAL (El toque de consultoría corporativa)
+    # 4. DIAGNÓSTICO FINAL
     pdf.ln(12)
-    pdf.set_fill_color(239, 246, 255) # Azul muy claro de fondo
+    pdf.set_fill_color(239, 246, 255)
     pdf.set_draw_color(191, 219, 254)
     pdf.rect(10, pdf.get_y(), 190, 25, 'DF')
     
-    pdf.set_text_color(29, 78, 216) # Azul corporativo
+    pdf.set_text_color(29, 78, 216)
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(0, 6, "  DIAGNOSTICO DEL INGENIERO DE IA:", ln=True)
     pdf.set_font("Arial", 'I', 10)
@@ -206,7 +204,7 @@ def generar_reporte_pdf(total, nulos, alertas):
         
     pdf.multi_cell(0, 5, msg_diagnostico)
     
-    # Pie de página integrado
+    # Pie de página
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
     pdf.set_text_color(148, 163, 184)
@@ -258,7 +256,6 @@ if modo == "Pipeline de Auditoría":
     st.subheader("Ingesta y Procesamiento Neuronal")
     archivo = st.file_uploader("Cargar dataset", type=["csv", "xlsx"])
     
-    # 1. Definir estados iniciales para que la web no se reinicie
     if 'df_procesado' not in st.session_state:
         st.session_state.df_procesado = None
         st.session_state.analisis = None
@@ -266,13 +263,11 @@ if modo == "Pipeline de Auditoría":
     if 'pdf_generado' not in st.session_state:
         st.session_state.pdf_generado = None
 
-    # BOTÓN DE PROCESAMIENTO PRINCIPAL
     if archivo and st.button("Ejecutar Análisis"):
         with st.spinner("Procesando red neuronal..."):
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df_limpio, total, nulos, alertas, analisis = purificar_datos_con_ia(df)
             
-            # Inserción a SQL
             conn = obtener_conexion()
             cursor = conn.cursor()
             valores = [(int(row['ID_Cliente']), row['Nombre'], str(row['Email']), float(row['Edad']), float(row['Ingresos_Anuales']), str(row['Telefono'])) for _, row in df_limpio.iterrows()]
@@ -282,19 +277,16 @@ if modo == "Pipeline de Auditoría":
             cursor.close()
             conn.close()
 
-            # Guardar en memoria (Session State)
             st.session_state.df_procesado = df_limpio
             st.session_state.analisis = analisis
             st.session_state.metricas = (total, nulos, alertas)
-            st.session_state.pdf_generado = None # Resetear PDF anterior si se sube archivo nuevo
+            st.session_state.pdf_generado = None
 
-    # 2. MOSTRAR RESULTADOS SI YA HAY DATOS PROCESADOS (FUERA DEL BOTÓN DE EJECUTAR)
     if st.session_state.df_procesado is not None:
         df_limpio = st.session_state.df_procesado
         analisis = st.session_state.analisis
         total, nulos, alertas = st.session_state.metricas
 
-        # Métricas
         col1, col2, col3 = st.columns(3)
         col1.metric("Registros Auditados", f"{total:,}")
         col2.metric("Nulos Corregidos", f"{nulos:,}")
@@ -303,14 +295,14 @@ if modo == "Pipeline de Auditoría":
         st.write("Gráfico de dispersión de error (Autoencoder):")
         st.line_chart(analisis['Error_IA'].head(100))
         
-        # TABS DE VISTA
         tab1, tab2 = st.tabs(["Datos Purificados", "Sala de Cuarentena"])
         with tab1:
-            st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), use_container_width=True)
+            # Corregido: width='stretch' en lugar de use_container_width
+            st.dataframe(df_limpio.drop(columns=['Email_Roto', 'Nombre_Falso']), width='stretch')
         with tab2:
-            st.dataframe(analisis[analisis['Error_IA'] > 0.05], use_container_width=True)
+            # Corregido: width='stretch' en lugar de use_container_width
+            st.dataframe(analisis[analisis['Error_IA'] > 0.05], width='stretch')
 
-        # 3. EL FORMULARIO (AHORA ES INDEPENDIENTE Y NO ROMPE LA PÁGINA)
         with st.expander("📥 Obtener Informe de Auditoría Completo"):
             st.write("Introduce tus datos para generar y descargar el informe oficial.")
             with st.form("form_captacion"):
@@ -320,9 +312,7 @@ if modo == "Pipeline de Auditoría":
                 
                 if submit_button:
                     if email_cliente and "@" in email_cliente:
-                        # Generamos y guardamos el PDF en estado
                         st.session_state.pdf_generado = generar_reporte_pdf(total, nulos, alertas)
-                        # Intentamos enviar el correo
                         try:
                             enviar_aviso_venta(nombre_cliente, email_cliente)
                         except:
@@ -331,7 +321,6 @@ if modo == "Pipeline de Auditoría":
                     else:
                         st.error("Por favor, introduce un email corporativo válido.")
 
-        # 4. BOTÓN DE DESCARGA (APARECE CUANDO EL PDF SE GENERA)
         if st.session_state.pdf_generado:
             st.download_button(
                 label="⬇️ DESCARGAR PDF AHORA",
@@ -346,7 +335,8 @@ elif modo == "Base de Datos SQL":
     df_sql = pd.read_sql_query("SELECT * FROM clientes_purificados", conn)
     conn.close()
     
-    st.dataframe(df_sql, use_container_width=True)
+    # Corregido: width='stretch' en lugar de use_container_width
+    st.dataframe(df_sql, width='stretch')
     
     if not df_sql.empty:
         csv = df_sql.to_csv(index=False).encode('utf-8')
